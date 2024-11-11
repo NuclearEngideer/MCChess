@@ -54,6 +54,7 @@ class MCEngine():
 
     def start_line_generator(self):
         LGOS = []
+        #TODO set this test to >= 0 so the generator can play a full move ahead
         if self.depth > 0:
             for line in range(self.num_lines):
                 print(f'Initializing Line Generator for line {line} at move {self.board.fullmove_number} for color {self.board.turn}')
@@ -101,7 +102,7 @@ class MCEngine():
             self.initialize_prng()
             self.random_move()
             self.depth = self.mce.stop_move_number - self.board.fullmove_number
-            
+
             print(f'{self.depth}')
             print(self.board.unicode())
             MCEI = MCEngine(self.board, self.depth, self.mce.num_lines, self.board.fullmove_number)
