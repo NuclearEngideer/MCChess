@@ -2,7 +2,12 @@ import chess
 import chess.pgn
 import re
 import random
-import pprint
+import copy
+import logging
+
+logging.basicConfig(level=logging.DEBUG, 
+                    format='%(levelname)s:%(message)s',
+                    filename="debug.log")
 
 def write_intro():
     print('This is a basic monte carlo chess engine. You play as white.\n'
@@ -30,12 +35,12 @@ def get_human_move(board):
 
 def print_board(board):
     rank = 8
-    board_string = ''
+    board_string = '\n'
     for line in board.unicode().split('\n'):
         if line:
             board_string +=f'{rank} ' + line + '\n'
             rank -= 1
-    board_string += '  A B C D E F G H'
+    board_string += '  A B C D E F G H\n'
     print(board_string)
 
 class MCEngine():
@@ -52,30 +57,36 @@ class MCEngine():
         # self.start_line_generator()
 
 
-    def start_line_generator(self):
-        LGOS = []
-        #TODO set this test to >= 0 so the generator can play a full move ahead
-        if self.depth > 0:
-            for line in range(self.num_lines):
-                print(f'Initializing Line Generator for line {line} at move {self.board.fullmove_number} for color {self.board.turn}')
-                LGOS.append(self.LineGenerator(self, self.board.fullmove_number+line))
-        else:
-            print('reached depth')
-        for LGO in LGOS:
-            LGO.move_at_depth()
+    def line_generator(self):
+        results = {}
+        # positions = []
+        initial_position = copy.deepcopy(self.board)
+        positions = self._recursive_mc_moves(initial_position, 0, initial_position.fullmove_number)
+        # Uncomment below for accidentally extra lines
+        # for line in range(self.num_lines):
+        #     print(f'working on line {line+1}')
+        #     mc_positions = self._recursive_mc_moves(initial_position, 0, line)
+        #     results[line]=mc_positions
+        #     positions += mc_positions
+        # for key, value in results.items():
+        #     print(f'In Line {key+1}, movestacks are:')
+        #     for move in value:
+        #         print(move.move_stack)
+        positions = self.remove_duplicate_positions(positions)
+        logging.debug(initial_position.fullmove_number)
+        # TODO: this will just choose a random move. Needs an importance function still
+        self.initialize_prng(initial_position, initial_position.fullmove_number, 8675309)
+        selected_line = positions[random.randrange(0, len(positions))]
+        selected_move = selected_line.move_stack[self.board.fullmove_number*2 -1]
+        print(f'Computer plays: {self.board.san(selected_move)}')
+        self.board.push(selected_line.move_stack[self.board.fullmove_number*2 - 1])
+        
 
-    class LineGenerator():
-        def __init__(self, calling_mce, line_number):
-            self.mce = calling_mce
-            self.board = self.mce.board
-            self.line_number = line_number
-            self.depth = 0
-    
-        def initialize_prng(self):
-            board_map = self.mce.board.piece_map()
+    def initialize_prng(self, current_position, move_number, line_number):
+            board_map = current_position.piece_map()
             seed = 0
             for key, value in board_map.items():
-                match value.symbol():
+                match value.symbol().lower():
                     case 'k':
                         pv = 100
                     case 'q':
@@ -87,117 +98,59 @@ class MCEngine():
                     case 'p':
                         pv = 1
                 seed += key*pv
-            seed += self.board.fullmove_number * self.line_number
+            seed += move_number* line_number
+            logging.debug(seed)
             random.seed(seed)
 
-        def random_move(self):
-            random_move_index = random.randrange(0, self.board.legal_moves.count()-1)
-            legal_moves = [move for move in self.board.legal_moves]
-            selected_move = legal_moves[random_move_index]
-            print(f'{selected_move}')
-            # make selected_move
-            self.board.push(selected_move)
-
-        def move_at_depth(self):
-            self.initialize_prng()
-            self.random_move()
-            self.depth = self.mce.stop_move_number - self.board.fullmove_number
-
-            print(f'{self.depth}')
-            print(self.board.unicode())
-            MCEI = MCEngine(self.board, self.depth, self.mce.num_lines, self.board.fullmove_number)
-            MCEI.start_line_generator()
-
-
-    # initialize PRNG by board position (as square index * piece value) + (move count * line number)
-    # we do this for reproducability while trying to avoid duplicates, maybe - arbitrary method currently
-    # This isn't a great prng because the engine will probably always play the same move in a given position 
-    # with the same depth and line number(s)
-
-    def initialize_prng(self):
-        board_map = self.board.piece_map()
-        seed = 0
-        for key, value in board_map.items():
-            match value.symbol():
-                case 'k':
-                    pv = 100
-                case 'q':
-                    pv = 9
-                case 'r':
-                    pv = 5
-                case 'b' | 'n':
-                    pv = 3
-                case 'p':
-                    pv = 1
-            seed += key*pv
-        seed += self.board.fullmove_number * self.line_number
-        print(seed)
-        random.seed(seed)
-    
-    def random_move(self):
-        # Generate UCI string(s) for all legal moves
-        # board_map = self.board.piece_map()
-        # turn_pieces = []
-        # for key in board_map.keys():
-        #     if self.board.color_at(key) == self.board.turn:
-        #         turn_pieces.append(key)
-        # uci_strings = []
-        # for piece in turn_pieces:
-        #     for move in self.board.legal_moves:
-        random_move_index = random.randrange(0, self.board.legal_moves.count()-1)
-        legal_moves = [move for move in self.board.legal_moves]
+    def random_move(self, current_board):
+        if current_board.legal_moves.count()>1:
+            random_move_index = random.randrange(0, current_board.legal_moves.count()-1)
+        elif current_board.legal_moves.count()==1:
+            random_move_index = 0
+        legal_moves = [move for move in current_board.legal_moves]
         selected_move = legal_moves[random_move_index]
-        self.board.push(selected_move)
+        logging.debug(f'{selected_move}')
+        current_board.push(selected_move)
+        return copy.deepcopy(current_board)
+
+    def _recursive_mc_moves(self, starting_position, depth, line):
+        # starting position is board class
+        logging.debug(depth)
+        if depth == self.depth:
+            return [copy.deepcopy(starting_position)]
+        
+        results = []
+
+        # Handle checkmate and stalemate
+        if starting_position.is_checkmate() or starting_position.is_stalemate():
+            results.extend([copy.deepcopy(starting_position)])
+            return results
+        
+        for i in range(self.num_lines):
+            self.initialize_prng(starting_position, starting_position.fullmove_number, i+depth+line)
+            current_board = self.random_move(copy.deepcopy(starting_position))
+            logging.debug(current_board.unicode())
+            result = self._recursive_mc_moves(current_board, depth+1, i)
+            results.extend(result)
+        
+        return results
+
+    def remove_duplicate_positions(self, position_list:list):
+        unique_positions = []
+        for position in position_list:
+            if not any(position == existing_position for existing_position in unique_positions):
+                unique_positions.append(position)
+        return unique_positions
 
     def is_good_position(self):
         # Want to check how good each positioin is
         # Count the attackers on a piece and if other pieces are defending it?
         pass
 
-class LineGenerator():
-    def __init__(self, board, stop_move_number, line_number):
-        self.board = board
-        self.line_number = line_number
-        self.move_number = self.board.fullmove_number
-        self.depth = stop_move_number-self.move_number
-    
-    def initialize_prng(self):
-        board_map = self.board.piece_map()
-        seed = 0
-        for key, value in board_map.items():
-            match value.symbol():
-                case 'k':
-                    pv = 100
-                case 'q':
-                    pv = 9
-                case 'r':
-                    pv = 5
-                case 'b' | 'n':
-                    pv = 3
-                case 'p':
-                    pv = 1
-            seed += key*pv
-        seed += self.board.fullmove_number * self.line_number
-        random.seed(seed)
-
-    def random_move(self):
-        random_move_index = random.randrange(0, self.board.legal_moves.count()-1)
-        legal_moves = [move for move in self.board.legal_moves]
-        selected_move = legal_moves[random_move_index]
-        # return selected_move
-        self.board.push(selected_move)
-    
-    def move_at_depth(self):
-        self.initialize_prng()
-        self.random_move()
-        MCEngine(self.board, self.depth, self.lines)
-
-
-
-
 def main():
-    depth = 1
-    num_lines = 2
+    # odd depths end back on white's turn
+    depth = 5
+    num_lines = 4
     checkmate = False
     write_intro()
 
@@ -213,15 +166,12 @@ def main():
         get_human_move(board)
         print_board(board)
         
-        MCE = MCEngine(board, depth = depth, num_lines = num_lines, global_moves=board.fullmove_number)
-        MCE.start_line_generator()
-
-        # for line in range(num_lines):
-        #     MCEngine(board, depth = depth, sub_lines=sub_lines, line_number=line, global_moves=board.fullmove_number)
-            # Each of these will have to return 1 move option for the opposing color
-            # here in main we will evaluate the move based on the returned move option and line strength of the best move line
-        print_board(board)
-        pass
+        if not board.is_checkmate() or not board.is_stalemate():
+            MCE = MCEngine(board, depth = depth, num_lines = num_lines, global_moves=board.fullmove_number)
+            MCE.line_generator()
+            print_board(board)
+        else:
+            print('checkmate (or stalemate ig)')
 
 
 if __name__ == "__main__":
