@@ -116,22 +116,30 @@ class MCEngine():
         #         print(move.move_stack)
         positions = self.remove_duplicate_positions(positions)
         logging.debug(initial_position.fullmove_number)
-        # TODO: this will just choose a random move. Needs an importance function still
-        position_strength = []
-        for position in positions:
-            position_strength.append(self.is_good_position(position))
-        min_value = min(position_strength)
-        min_indices = [i for i, x in enumerate(position_strength) if x == min_value]
-        if len(min_indices) > 1:
-            self.initialize_prng(initial_position, initial_position.fullmove_number, len(min_indices)*min_value)
-            selected_line_index = min_indices[random.randrange(0, len(min_indices))]
-            selected_line = positions[selected_line_index]
-            selected_move = selected_line.move_stack[self.board.fullmove_number*2 - 1]
+        if len(positions) > 1:
+            self.initialize_prng(initial_position, initial_position .fullmove_number, 8675309)
+            selected_line = positions[random.randrange(0, len(positions))]
         else:
-            selected_line = positions[min_indices[0]]
-            selected_move = selected_line.move_stack[self.board.fullmove_number*2 - 1]
+            selected_line = positions[0]
+        selected_move = selected_line.move_stack[self.board.fullmove_number*2 - 1]
+
+        # TODO: this will just choose a random move. Needs an importance function still
+        # position_strength = []
+        # for position in positions:
+        #     position_strength.append(self.is_good_position(position))
+        # min_value = min(position_strength)
+        # min_indices = [i for i, x in enumerate(position_strength) if x == min_value]
+        # if len(min_indices) > 1:
+        #     self.initialize_prng(initial_position, initial_position.fullmove_number, len(min_indices)*min_value)
+        #     selected_line_index = min_indices[random.randrange(0, len(min_indices))]
+        #     selected_line = positions[selected_line_index]
+        #     selected_move = selected_line.move_stack[self.board.fullmove_number*2 - 1]
+        # else:
+        #     selected_line = positions[min_indices[0]]
+        #     selected_move = selected_line.move_stack[self.board.fullmove_number*2 - 1]
         print(f'\rComputer plays: {self.board.san(selected_move)}')
-        self.board.push(selected_line.move_stack[self.board.fullmove_number*2 - 1])
+        self.board.push(selected_move)
+        # self.board.push(selected_line.move_stack[self.board.fullmove_number*2 - 1])
         
 
     def initialize_prng(self, current_position, move_number, line_number):
