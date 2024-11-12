@@ -1,6 +1,16 @@
 ### Monte Carlo Chess ###
 
+```
+   __  ________        _______             
+  /  |/  / ___/ ____  / ___/ /  ___ ___ ___
+ / /|_/ / /__  /___/ / /__/ _ \/ -_|_-<(_-<
+/_/  /_/\___/        \___/_//_/\__/___/___/
+
+```
+
 Use: `python3 mcengine.py [-n <number of lines> -d <depth> -w <True|False>]`
+
+You cannot undo moves or resign. Resignation is handled by ctrl-c or throwing your computer out the window. The latter is advisable if this engine beats you.
 
 This is a semi-deterministic monte carlo chess engine.
 The engine relies on the `python-chess` package for low level chess operations like piece control, checkmates/checks, and legal moves.
