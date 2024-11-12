@@ -9,6 +9,8 @@ There are many nuances that are not accounted for here both in the generation of
 
 Ideally, each line should cull itself after a partial depth if the position after some shallow number of moves is very bad. Surviving lines could continue to a greater depth and return a stronger move. This could be implemented but is currently not. 
 
+Note, this is a semideterministic and pseudorandom code. The same human moves with the same board will always yield the same response from the computer at the same move number. Hopefully.
+
 Untested features:
 * Does the computer know how to checkmate? Probably not. 
 * What happens if the computer gets a checkmate? Have not tested that part of the code
